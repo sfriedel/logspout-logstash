@@ -46,6 +46,12 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			Image:    m.Container.Config.Image,
 			Hostname: m.Container.Config.Hostname,
 		}
+		rancherInfo := RancherInfo{
+			Project:       m.Container.Config.Labels["io.rancher.project.name"],
+			Stack:         m.Container.Config.Labels["io.rancher.stack.name"],
+			StackService:  m.Container.Config.Labels["io.rancher.stack_service.name"],
+			ContainerName: m.Container.Config.Labels["io.rancher.container.name"],
+		}
 
 		var js []byte
 		var data map[string]interface{}
@@ -54,6 +60,7 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 			msg := LogstashMessage{
 				Message: m.Data,
 				Docker:  dockerInfo,
+				Rancher: rancherInfo,
 				Stream:  m.Source,
 			}
 			if js, err = json.Marshal(msg); err != nil {
@@ -63,6 +70,7 @@ func (a *LogstashAdapter) Stream(logstream chan *router.Message) {
 		} else {
 			// The message is already in JSON, add the docker specific fields.
 			data["docker"] = dockerInfo
+			data["rancher"] = rancherInfo
 			if js, err = json.Marshal(data); err != nil {
 				log.Println("logstash:", err)
 				continue
@@ -85,9 +93,17 @@ type DockerInfo struct {
 	Hostname string `json:"hostname"`
 }
 
+type RancherInfo struct {
+	Project       string `json:"project"`
+	Stack         string `json:"stack"`
+	StackService  string `json:"stack_service"`
+	ContainerName string `json:"container_name"`
+}
+
 // LogstashMessage is a simple JSON input to Logstash.
 type LogstashMessage struct {
-	Message string     `json:"message"`
-	Stream  string     `json:"stream"`
-	Docker  DockerInfo `json:"docker"`
+	Message string      `json:"message"`
+	Stream  string      `json:"stream"`
+	Docker  DockerInfo  `json:"docker"`
+	Rancher RancherInfo `json:"rancher"`
 }
